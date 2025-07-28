@@ -4,6 +4,7 @@ import { organizationService } from '../../lib/organizationService';
 import { authService } from '../../lib/auth';
 import { clearAllAuthStorage } from '../../lib/storageUtils';
 import { Button } from '@/components/ui/button';
+import { organizations } from '../../data/organizationList';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import { Building2, Users, Plus, UserPlus, LogOut } from 'lucide-react';
 const OnboardingPage: React.FC = () => {
   const { user } = useAuth();
   
+
   const [createOrgForm, setCreateOrgForm] = useState({
     organizationName: '',
     projectName: '',
@@ -266,18 +268,39 @@ const OnboardingPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="organizationName">Organization Name</Label>
-                      <Input
+                      <select
                         id="organizationName"
-                        type="text"
-                        placeholder="e.g., TCS, Infosys, HPE"
+                        className="w-full border rounded px-3 py-2 text-gray-700"
                         value={createOrgForm.organizationName}
-                        onChange={(e) => setCreateOrgForm({
-                          ...createOrgForm,
-                          organizationName: e.target.value
-                        })}
+                        onChange={(e) => {
+                          const selectedOrg = organizations.find(org => org.name === e.target.value);
+                          // Ensure code is 8 characters, readable, and meaningful
+                          let code = selectedOrg ? selectedOrg.code : '';
+                          if (selectedOrg) {
+                            // Example: Pad code to 8 chars: first 3 of name, 2 of country, 3 digits
+                            const namePart = selectedOrg.name.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 3);
+                            const countryPart = selectedOrg.country.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 2);
+                          const numMatch = code.match(/\d+/);
+                          const numPart = numMatch ? numMatch[0].padStart(3, '0') : '001';
+                          code = `${namePart}${countryPart}${numPart}`.padEnd(8, '0');
+                          }
+                          setCreateOrgForm({
+                            ...createOrgForm,
+                            organizationName: selectedOrg ? selectedOrg.name : '',
+                            organizationCode: code
+                          });
+                        }}
                         required
                         disabled={isLoading}
-                      />
+                      >
+                        <option value="">Select organization</option>
+                        {organizations.map(org => (
+                          <option key={org.code} value={org.name}>
+                            {org.name} ({org.country}){org.description ? ` - ${org.description}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500">Select from top global IT organizations. Code is auto-generated and meaningful.</p>
                     </div>
                     
                     <div className="space-y-2">
@@ -303,16 +326,12 @@ const OnboardingPage: React.FC = () => {
                       <Input
                         id="organizationCode"
                         type="text"
-                        placeholder="e.g., TCS001, INF002"
                         value={createOrgForm.organizationCode}
-                        onChange={(e) => setCreateOrgForm({
-                          ...createOrgForm,
-                          organizationCode: e.target.value.toUpperCase()
-                        })}
-                        required
-                        disabled={isLoading}
+                        readOnly
+                        disabled
+                        className="bg-gray-100"
                       />
-                      <p className="text-xs text-gray-500">Must be unique across all organizations</p>
+                      <p className="text-xs text-gray-500">Auto-assigned based on organization selection</p>
                     </div>
                     
                     <div className="space-y-2">
@@ -396,18 +415,28 @@ const OnboardingPage: React.FC = () => {
               <CardContent>
                 <form onSubmit={handleJoinOrganization} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="joinOrgCode">Organization Code</Label>
-                    <Input
+                    <Label htmlFor="joinOrgCode">Select Organization</Label>
+                    <select
                       id="joinOrgCode"
-                      type="text"
-                      placeholder="Enter organization code (e.g., TCS001)"
+                      className="w-full border rounded px-3 py-2 text-gray-700"
                       value={joinOrgForm.organizationCode}
-                      onChange={(e) => setJoinOrgForm({
-                        ...joinOrgForm,
-                        organizationCode: e.target.value.toUpperCase()
-                      })}
+                      onChange={(e) => {
+                        setJoinOrgForm({
+                          ...joinOrgForm,
+                          organizationCode: e.target.value
+                        });
+                      }}
                       required
-                    />
+                      disabled={isLoading}
+                    >
+                      <option value="">Select organization</option>
+                      {organizations.map(org => (
+                        <option key={org.code} value={org.code}>
+                          {org.name} ({org.country}){org.description ? ` - ${org.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select your organization from the list. Code is auto-filled.</p>
                   </div>
 
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">

@@ -6,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -35,10 +34,19 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "../hooks/useAuth";
 import { organizationService } from "../lib/organizationService";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UpcommingLeaves from "./UpcommingLeaves";
+import CreateRules from "./CreateRules";
+import LeaveTracker from "./LeaveTracker";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "../lib/supabase";
 
-// RosterTable subcomponent (copied from OrganizationDashboard)
+interface UserCompOffBalance {
+  user_id: string;
+  balance: number;
+}
+
+/* // RosterTable subcomponent (copied from OrganizationDashboard)
 const shiftOptions = [
   { label: "Morning (S1)", value: "S1" },
   { label: "Noon (S2)", value: "S2" },
@@ -51,7 +59,7 @@ const leaveOptions = [
   { label: "Emergency Leave (EL)", value: "EL" },
   { label: "Sick Leave (SL)", value: "SL" },
   { label: "Comp-Off (CmO)", value: "CmO" },
-];
+]; */
 
 const shiftMap: {
   [key: string]: {
@@ -91,6 +99,12 @@ const shiftMap: {
     bgColor: "bg-[#A9A9A9]",
     textColor: "text-white",
   },
+  WO: {
+    label: "Week-Offs",
+    timing: "NIL",
+    bgColor: "bg-[#C21E56]",
+    textColor: "text-white",
+  },
 };
 const leaveMap: {
   [key: string]: { label: string; bgColor: string; textColor: string };
@@ -125,6 +139,13 @@ const RosterTable: React.FC<{
   pendingRoster: {
     [key: string]: { userId: string; date: string; value: string };
   };
+  onCompOffBalanceChange?: (balance: number) => void;
+  onRosterEntryChange?: () => void;
+  carryForwardBalance?: number;
+  monthNames?: string[];
+  isPastMonth?: (month: number, year: number) => boolean;
+  userRole?: string | null;
+  getCompOffBalanceForUser?: (userId: string) => number;
 }> = ({
   rosterData,
   currentMonth,
@@ -132,6 +153,13 @@ const RosterTable: React.FC<{
   selectedTeam,
   handleSelect,
   pendingRoster,
+  onCompOffBalanceChange,
+  onRosterEntryChange,
+  carryForwardBalance = 0,
+  monthNames = [],
+  isPastMonth,
+  userRole,
+  getCompOffBalanceForUser,
 }) => {
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -143,12 +171,54 @@ const RosterTable: React.FC<{
     setLocalRoster(rosterData);
   }, [rosterData]);
 
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   // Update local state and call backend (placeholder)
   const handleSelectForTable = (
     userId: string,
     date: string,
     value: string
   ) => {
+    // Validate comp-off selection
+    if (value === "CF") {
+      // Calculate current balance to check if user can apply CF
+      const currentUserMember = localRoster.find(
+        (member) => member.user_id === userId
+      );
+      if (currentUserMember) {
+        const currentMonthOC = currentUserMember.entries.filter(
+          (entry: any) =>
+            entry.status === "OC" &&
+            entry.date.startsWith(
+              `${currentYear}-${String(currentMonth).padStart(2, "0")}`
+            )
+        ).length;
+
+        const currentMonthCF = currentUserMember.entries.filter(
+          (entry: any) =>
+            (entry.status === "CF" || entry.status === "CmO") &&
+            entry.date.startsWith(
+              `${currentYear}-${String(currentMonth).padStart(2, "0")}`
+            )
+        ).length;
+
+        const currentMonthBalance = currentMonthOC - currentMonthCF;
+        const totalBalance = carryForwardBalance + currentMonthBalance;
+
+        if (totalBalance <= 0) {
+          // Show warning toast and prevent selection
+          toast({
+            variant: "destructive",
+            title: "Insufficient Comp-off Balance",
+            description:
+              "You cannot apply comp-off when your balance is 0 or less.",
+          });
+          return;
+        }
+      }
+    }
+
     setLocalRoster((prev) =>
       prev.map((member) => {
         if (member.user_id !== userId) return member;
@@ -166,7 +236,15 @@ const RosterTable: React.FC<{
     );
     // Track pending changes
     handleSelect(userId, date, value);
+
+    // Trigger immediate balance recalculation
+    if (onRosterEntryChange) {
+      onRosterEntryChange();
+    }
   };
+
+  // Note: Comp-off balance calculation is now handled in OrganizationDashboard
+  // This useEffect has been removed to prevent conflicts with the centralized calculation
 
   const getStatusBadge = (status: string) => {
     if (shiftMap[status]) {
@@ -207,7 +285,6 @@ const RosterTable: React.FC<{
     return entries.find((entry) => entry.date === date);
   };
 
-  const { user } = useAuth();
   // Determine the user's team only once from orgData and user
   // const userTeamId = React.useMemo(() => {
   //   if (!orgData?.teams || !user?.id) return undefined;
@@ -278,6 +355,21 @@ const RosterTable: React.FC<{
                 No team members found for this team.
               </TableCell>
             </TableRow>
+          ) : localRoster.every(
+              (member) => !member.entries || member.entries.length === 0
+            ) ? (
+            <TableRow>
+              <TableCell
+                colSpan={days.length + 1}
+                className="text-center py-8 text-gray-500"
+              >
+                No roster data available for {monthNames[currentMonth - 1]}{" "}
+                {currentYear}.
+                {isPastMonth && isPastMonth(currentMonth, currentYear)
+                  ? " This is a past month with no data."
+                  : " Please generate a roster for this month."}
+              </TableCell>
+            </TableRow>
           ) : (
             localRoster.map((member) => (
               <TableRow key={member.user_id}>
@@ -302,7 +394,16 @@ const RosterTable: React.FC<{
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                     </div>
                     <div>
-                      <div className="font-medium">{member.username}</div>
+                      <div className="font-medium truncate max-w-[120px]">
+                        {member.username.length > 15
+                          ? member.username.substring(0, 15) + "..."
+                          : member.username}
+                      </div>
+                      {userRole === "admin" && getCompOffBalanceForUser && (
+                        <div className="text-xs text-blue-600 font-medium">
+                          {getCompOffBalanceForUser(member.user_id)} CF
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TableCell>
@@ -375,20 +476,117 @@ const RosterTable: React.FC<{
                             <SelectSeparator />
                             <SelectGroup>
                               <SelectLabel>Leaves</SelectLabel>
-                              {Object.entries(leaveMap).map(([code, opt]) => (
-                                <SelectItem key={code} value={code}>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`flex items-center justify-center rounded-full w-7 h-7 text-xs font-bold ${opt.bgColor} ${opt.textColor}`}
-                                    >
-                                      {code}
-                                    </span>
-                                    <span className="text-sm font-medium">
-                                      {opt.label}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
+                              {Object.entries(leaveMap).map(([code, opt]) => {
+                                // Check if this is CF and if user has insufficient balance
+                                const isCF = code === "CF";
+                                let isDisabled = false;
+
+                                if (isCF && member.user_id === user?.id) {
+                                  // Calculate current balance for this user
+                                  const currentUserMember = localRoster.find(
+                                    (m) => m.user_id === member.user_id
+                                  );
+                                  if (currentUserMember) {
+                                    const currentMonthOC =
+                                      currentUserMember.entries.filter(
+                                        (entry: any) =>
+                                          entry.status === "OC" &&
+                                          entry.date.startsWith(
+                                            `${currentYear}-${String(
+                                              currentMonth
+                                            ).padStart(2, "0")}`
+                                          )
+                                      ).length;
+
+                                    const currentMonthCF =
+                                      currentUserMember.entries.filter(
+                                        (entry: any) =>
+                                          (entry.status === "CF" ||
+                                            entry.status === "CmO") &&
+                                          entry.date.startsWith(
+                                            `${currentYear}-${String(
+                                              currentMonth
+                                            ).padStart(2, "0")}`
+                                          )
+                                      ).length;
+
+                                    const currentBalance =
+                                      currentMonthOC - currentMonthCF;
+                                    isDisabled = currentBalance <= 0;
+                                  }
+                                }
+
+                                return (
+                                  <SelectItem
+                                    key={code}
+                                    value={code}
+                                    disabled={isDisabled}
+                                    className={
+                                      isDisabled
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : ""
+                                    }
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`flex items-center justify-center rounded-full w-7 h-7 text-xs font-bold ${opt.bgColor} ${opt.textColor}`}
+                                      >
+                                        {code}
+                                      </span>
+                                      <span className="text-sm font-medium">
+                                        {opt.label}
+                                        {isCF && (
+                                          <span className="text-xs text-gray-500 ml-1">
+                                            (Balance:{" "}
+                                            {(() => {
+                                              const currentUserMember =
+                                                localRoster.find(
+                                                  (m) =>
+                                                    m.user_id === member.user_id
+                                                );
+                                              if (currentUserMember) {
+                                                const currentMonthOC =
+                                                  currentUserMember.entries.filter(
+                                                    (entry: any) =>
+                                                      entry.status === "OC" &&
+                                                      entry.date.startsWith(
+                                                        `${currentYear}-${String(
+                                                          currentMonth
+                                                        ).padStart(2, "0")}`
+                                                      )
+                                                  ).length;
+
+                                                const currentMonthCF =
+                                                  currentUserMember.entries.filter(
+                                                    (entry: any) =>
+                                                      (entry.status === "CF" ||
+                                                        entry.status ===
+                                                          "CmO") &&
+                                                      entry.date.startsWith(
+                                                        `${currentYear}-${String(
+                                                          currentMonth
+                                                        ).padStart(2, "0")}`
+                                                      )
+                                                  ).length;
+
+                                                const currentMonthBalance =
+                                                  currentMonthOC -
+                                                  currentMonthCF;
+                                                return (
+                                                  carryForwardBalance +
+                                                  currentMonthBalance
+                                                );
+                                              }
+                                              return 0;
+                                            })()}
+                                            )
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectGroup>
                           </SelectContent>
                         </Select>
@@ -437,6 +635,11 @@ interface TeamRosterProps {
   setShowCreateTeam: (show: boolean) => void;
   onTeamSelect: (team: any) => void;
   loadRosterData: () => void;
+  onCompOffBalanceChange?: (balance: number) => void;
+  onRosterEntryChange?: () => void;
+  carryForwardBalance?: number;
+  isNavigationAllowed?: (month: number, year: number) => boolean;
+  isPastMonth?: (month: number, year: number) => boolean;
 }
 
 const TeamRoster: React.FC<TeamRosterProps> = ({
@@ -452,6 +655,11 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
   setShowCreateTeam,
   onTeamSelect,
   loadRosterData,
+  onCompOffBalanceChange,
+  onRosterEntryChange,
+  carryForwardBalance = 0,
+  isNavigationAllowed,
+  isPastMonth,
 }) => {
   const { user } = useAuth();
   // Determine the user's team only once from orgData and user
@@ -499,6 +707,212 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
     "idle"
   );
 
+  // Comp-off balance state for admin users
+  const [userCompOffBalances, setUserCompOffBalances] = useState<
+    UserCompOffBalance[]
+  >([]);
+
+  // Load comp-off balances for all team members when user is admin
+  useEffect(() => {
+    if (userRole === "admin" && selectedTeam) {
+      loadAllTeamCompOffBalances();
+    }
+  }, [userRole, selectedTeam, currentMonth, currentYear]);
+
+  const loadAllTeamCompOffBalances = async () => {
+    try {
+      console.log("Loading comp-off balances for admin user...");
+
+      // Get all team members
+      const { data: teamMembers, error: teamError } = await supabase
+        .from("team_members")
+        .select("user_id")
+        .eq("team_id", selectedTeam.id);
+
+      if (teamError || !teamMembers) {
+        console.error(
+          "Error fetching team members for comp-off balances:",
+          teamError
+        );
+        return;
+      }
+
+      console.log("Team members found:", teamMembers);
+
+      // Calculate comp-off balances locally based on roster data
+      const balances: UserCompOffBalance[] = [];
+
+      for (const member of teamMembers) {
+        try {
+          console.log(
+            `Calculating comp-off balance for user ${member.user_id} in team ${selectedTeam.id} for ${currentMonth}/${currentYear}`
+          );
+
+          // Calculate comp-off balance locally based on roster data
+          const balance = await calculateLocalCompOffBalance(member.user_id);
+
+          console.log(`Balance for user ${member.user_id}: ${balance}`);
+
+          balances.push({
+            user_id: member.user_id,
+            balance: balance,
+          });
+        } catch (error) {
+          console.error(
+            `Error calculating comp-off balance for user ${member.user_id}:`,
+            error
+          );
+          balances.push({
+            user_id: member.user_id,
+            balance: 0,
+          });
+        }
+      }
+
+      console.log("Final balances array:", balances);
+      setUserCompOffBalances(balances);
+    } catch (error) {
+      console.error("Error loading team comp-off balances:", error);
+    }
+  };
+
+  // Calculate comp-off balance locally based on roster data
+  const calculateLocalCompOffBalance = async (
+    userId: string
+  ): Promise<number> => {
+    try {
+      console.log(`Calculating comp-off balance for user ${userId}`);
+      console.log(`Current rosterData:`, rosterData);
+
+      // Find the user's roster data
+      const userRoster = rosterData.find((member) => member.user_id === userId);
+      console.log(`User roster found:`, userRoster);
+
+      if (!userRoster || !userRoster.entries) {
+        console.log(
+          `No roster data found for user ${userId}, trying database fallback`
+        );
+        return await calculateFromDatabase(userId);
+      }
+
+      console.log(`User entries:`, userRoster.entries);
+
+      // Calculate OC and CF for current month
+      let ocCount = 0;
+      let cfCount = 0;
+
+      userRoster.entries.forEach((entry: any) => {
+        console.log(`Processing entry:`, entry);
+        const entryDate = new Date(entry.date);
+        const entryMonth = entryDate.getMonth() + 1;
+        const entryYear = entryDate.getFullYear();
+
+        console.log(
+          `Entry date: ${entry.date}, month: ${entryMonth}, year: ${entryYear}`
+        );
+        console.log(
+          `Current month: ${currentMonth}, current year: ${currentYear}`
+        );
+
+        if (entryMonth === currentMonth && entryYear === currentYear) {
+          console.log(`Entry is in current month, status: ${entry.status}`);
+          // Check both 'status' and 'shift_type' fields
+          const status = entry.status || entry.shift_type;
+          if (status === "OC") {
+            ocCount++;
+            console.log(`Found OC, count now: ${ocCount}`);
+          } else if (status === "CF") {
+            cfCount++;
+            console.log(`Found CF, count now: ${cfCount}`);
+          }
+        }
+      });
+
+      const balance = ocCount - cfCount;
+      console.log(
+        `Final calculation for user ${userId}: OC=${ocCount}, CF=${cfCount}, balance=${balance}`
+      );
+
+      // If local calculation returns 0 but we expect some value, try database fallback
+      if (balance === 0) {
+        console.log(`Local calculation returned 0, trying database fallback`);
+        return await calculateFromDatabase(userId);
+      }
+
+      return Math.max(0, balance); // Ensure balance is not negative
+    } catch (error) {
+      console.error(
+        `Error in local comp-off calculation for user ${userId}:`,
+        error
+      );
+      return await calculateFromDatabase(userId);
+    }
+  };
+
+  // Fallback calculation from database
+  const calculateFromDatabase = async (userId: string): Promise<number> => {
+    try {
+      console.log(`Calculating from database for user ${userId}`);
+
+      const startDate = `${currentYear}-${String(currentMonth).padStart(
+        2,
+        "0"
+      )}-01`;
+      const endDate = `${currentYear}-${String(currentMonth).padStart(
+        2,
+        "0"
+      )}-31`;
+
+      console.log(`Querying database for dates: ${startDate} to ${endDate}`);
+
+      const { data, error } = await supabase
+        .from("roster_entries")
+        .select("shift_type, date")
+        .eq("user_id", userId)
+        .eq("team_id", selectedTeam.id)
+        .gte("date", startDate)
+        .lte("date", endDate);
+
+      if (error) {
+        console.error("Database query error:", error);
+        return 0;
+      }
+
+      console.log(`Database entries found:`, data);
+
+      let ocCount = 0;
+      let cfCount = 0;
+
+      data?.forEach((entry: any) => {
+        if (entry.shift_type === "OC") {
+          ocCount++;
+        } else if (entry.shift_type === "CF") {
+          cfCount++;
+        }
+      });
+
+      const balance = ocCount - cfCount;
+      console.log(
+        `Database calculation for user ${userId}: OC=${ocCount}, CF=${cfCount}, balance=${balance}`
+      );
+      return Math.max(0, balance);
+    } catch (error) {
+      console.error(`Error in database calculation for user ${userId}:`, error);
+      return 0;
+    }
+  };
+
+  const getCompOffBalanceForUser = (userId: string): number => {
+    const userBalance = userCompOffBalances.find(
+      (balance) => balance.user_id === userId
+    );
+    const balance = userBalance ? userBalance.balance : 0;
+    console.log(
+      `getCompOffBalanceForUser called for ${userId}, returning: ${balance}`
+    );
+    return balance;
+  };
+
   const handleSelect = (userId: string, date: string, value: string) => {
     setPendingRoster((prev) => ({
       ...prev,
@@ -536,6 +950,105 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
   };
 
   const [showUpcomingLeave, setShowUpcomingLeave] = useState(false);
+  const [showCreateRules, setShowCreateRules] = useState(false);
+
+  const handleSaveRules = (rules: any) => {
+    console.log("Saving rules:", rules);
+    // TODO: Implement saving rules to backend
+  };
+
+  // Generate Roster logic
+  const [generating, setGenerating] = useState(false);
+  const handleGenerateRoster = async () => {
+    setGenerating(true);
+    try {
+      // 1. Fetch latest rules, team members, and leaves for selectedTeam
+      const teamId = selectedTeam?.id;
+      if (!teamId) return;
+
+      // Replace these with actual API calls or context
+      const rules = await organizationService.getRosterRules(teamId);
+      if (!rules) {
+        console.error("No roster rules found for team");
+        return;
+      }
+
+      // Debug check the rules structure
+      console.log("Roster Rules Structure:", JSON.stringify(rules, null, 2));
+
+      // Rules are already normalized in organizationService.getRosterRules
+      if (!Array.isArray(rules.shiftTimings)) {
+        console.error(
+          "Invalid rules format - missing or invalid shiftTimings array"
+        );
+        return;
+      }
+
+      const teamMembers = await organizationService.getTeamMembers(teamId);
+      if (!teamMembers || teamMembers.length === 0) {
+        console.error("No team members found for team");
+        return;
+      }
+
+      const leaves = await organizationService.getLeaves(
+        teamId,
+        currentYear,
+        currentMonth
+      );
+      // Ensure leaves is at least an empty array if no leaves found
+      const safeLeaves = leaves || [];
+
+      // 2. Generate roster
+      // Import generateRoster
+      const { generateRoster } = await import("../../utils/generateRoster");
+
+      // Debug log the inputs
+      console.log("Generating roster with:", {
+        rules,
+        teamMembers,
+        leaves: safeLeaves,
+        year: currentYear,
+        month: currentMonth,
+      });
+
+      // Set start and end dates for the current month
+      const startDate = `${currentYear}-${String(currentMonth).padStart(
+        2,
+        "0"
+      )}-01`;
+      const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+      const endDate = `${currentYear}-${String(currentMonth).padStart(
+        2,
+        "0"
+      )}-${lastDay}`;
+
+      const rosterRules = {
+        ...rules,
+        startDate,
+        endDate,
+      };
+
+      console.log("Generating roster with dates:", { startDate, endDate });
+
+      const assignments = generateRoster({
+        rules: rosterRules,
+        members: teamMembers,
+        leaves: safeLeaves,
+        year: currentYear,
+        month: currentMonth,
+      });
+      // 3. Update roster table in backend
+      await organizationService.saveGeneratedRoster(teamId, assignments);
+      // 4. Refresh UI
+      if (typeof loadRosterData === "function") {
+        loadRosterData();
+      }
+    } catch (err) {
+      console.error("Error generating roster:", err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <Card>
@@ -586,53 +1099,89 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
                           {saving ? "Saving..." : "Save"}
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                        disabled={!orgData.project}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        <span>Generate Roster</span>
-                      </Button>
+                      {userRole === "admin" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            disabled={!orgData.project || generating}
+                            onClick={handleGenerateRoster}
+                          >
+                            {generating ? "Generating..." : "Generate Roster"}
+                          </Button>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300 transition-colors"
-                        onClick={() => setShowAddMember(true)}
-                        disabled={!orgData.project}
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        <span>Add Member</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                        onClick={() => setShowCreateTeam(true)}
-                        disabled={!orgData.project}
-                      >
-                        <Users className="h-4 w-4" />
-                        <span>Create Team</span>
-                      </Button>
+                          <CreateRules
+                            trigger={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                                disabled={!orgData.project}
+                              >
+                                Create Rules
+                              </Button>
+                            }
+                            onSave={handleSaveRules}
+                          />
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300 transition-colors"
+                            onClick={() => setShowAddMember(true)}
+                            disabled={!orgData.project}
+                          >
+                            Add Member
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            onClick={() => setShowCreateTeam(true)}
+                            disabled={!orgData.project}
+                          >
+                            Create Team
+                          </Button>
+                        </>
+                      )}
                       <div className="flex items-center space-x-2 border-l pl-3 ml-3">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => navigateMonth("prev")}
-                          disabled={!orgData.project}
+                          disabled={
+                            !orgData.project ||
+                            (isNavigationAllowed &&
+                              !isNavigationAllowed(
+                                currentMonth - 1,
+                                currentYear
+                              ))
+                          }
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <span className="text-sm font-medium min-w-[120px] text-center">
                           {monthNames[currentMonth - 1]} {currentYear}
+                          {isPastMonth &&
+                            isPastMonth(currentMonth, currentYear) && (
+                              <span className="block text-xs text-gray-500">
+                                (Read Only)
+                              </span>
+                            )}
                         </span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => navigateMonth("next")}
-                          disabled={!orgData.project}
+                          disabled={
+                            !orgData.project ||
+                            (isNavigationAllowed &&
+                              !isNavigationAllowed(
+                                currentMonth + 1,
+                                currentYear
+                              ))
+                          }
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
@@ -646,22 +1195,27 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
                     selectedTeam={team}
                     handleSelect={handleSelect}
                     pendingRoster={pendingRoster}
+                    onCompOffBalanceChange={onCompOffBalanceChange}
+                    onRosterEntryChange={onRosterEntryChange}
+                    carryForwardBalance={carryForwardBalance}
+                    monthNames={monthNames}
+                    isPastMonth={isPastMonth}
+                    userRole={userRole}
+                    getCompOffBalanceForUser={getCompOffBalanceForUser}
                   />
                 </TabsContent>
               ))}
               <TabsContent value="leave-tracker" className="mt-6">
-                <div className="text-center py-8">
-                  <p className="text-gray-500">
-                    Leave Tracker features coming soon...
-                  </p>
-                </div>
+                <LeaveTracker selectedTeam={selectedTeam} userRole={userRole} />
               </TabsContent>
             </Tabs>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <UpcommingLeaves open={showUpcomingLeave} onClose={() => setShowUpcomingLeave(false)}
+        <UpcommingLeaves
+          open={showUpcomingLeave}
+          onClose={() => setShowUpcomingLeave(false)}
         />
       </CardContent>
     </Card>

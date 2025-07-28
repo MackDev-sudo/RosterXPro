@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  throw new Error("Missing Supabase environment variables");
 }
 
 // Create Supabase client
@@ -261,6 +261,117 @@ export interface Database {
           applied_at?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+        };
+      };
+      comp_off_carry_forward: {
+        Row: {
+          id: string;
+          user_id: string;
+          team_id: string;
+          year: number;
+          month: number;
+          carry_forward_balance: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          team_id: string;
+          year: number;
+          month: number;
+          carry_forward_balance: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          team_id?: string;
+          year?: number;
+          month?: number;
+          carry_forward_balance?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      upcoming_leaves: {
+        Row: {
+          id: string;
+          user_id: string;
+          leave_type: string;
+          start_date: string;
+          end_date: string;
+          reason: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          lrid: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          leave_type: string;
+          start_date: string;
+          end_date: string;
+          reason?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          lrid?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          leave_type?: string;
+          start_date?: string;
+          end_date?: string;
+          reason?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          lrid?: string | null;
+        };
+      };
+      comp_off_monthly_balance: {
+        Row: {
+          id: string;
+          user_id: string;
+          team_id: string;
+          year: number;
+          month: number;
+          oc_days: number;
+          cf_days: number;
+          balance: number;
+          carry_forward_balance: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          team_id: string;
+          year: number;
+          month: number;
+          oc_days: number;
+          cf_days: number;
+          balance: number;
+          carry_forward_balance: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          team_id?: string;
+          year?: number;
+          month?: number;
+          oc_days?: number;
+          cf_days?: number;
+          balance?: number;
+          carry_forward_balance?: number;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       user_organizations: {
