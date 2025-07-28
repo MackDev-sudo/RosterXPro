@@ -4,13 +4,11 @@ import {
   Building2,
   Briefcase,
   Award,
-  FileText,
   Target,
   Edit,
   Download,
   Eye,
   Star,
-  Clock,
   UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

@@ -13,107 +13,11 @@ import CreateTeam from "./CreateTeam";
 import AddMember from "./AddMember";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { CalendarDays, Users, Calendar } from "lucide-react";
 import TeamRoster from "./TeamRoster";
 import UpcommingLeaves from "./UpcommingLeaves";
 import { Button } from "./ui/button";
 import { Toaster } from "@/components/ui/toaster";
-
-const RosterTable: React.FC<{
-  rosterData: RosterData[];
-  currentMonth: number;
-  currentYear: number;
-}> = ({ rosterData, currentMonth, currentYear }) => {
-  // Generate days of the month
-  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "WO":
-        return <Badge variant="secondary">WO</Badge>;
-      case "None":
-        return <Badge variant="outline">None</Badge>;
-      case "Morning":
-        return <Badge variant="default">M</Badge>;
-      case "Evening":
-        return <Badge variant="default">E</Badge>;
-      case "Night":
-        return <Badge variant="default">N</Badge>;
-      default:
-        return <Badge variant="outline">None</Badge>;
-    }
-  };
-
-  const getEntryForDate = (entries: any[], date: string) => {
-    return entries.find((entry) => entry.date === date);
-  };
-
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-48">Team Member</TableHead>
-            {days.map((day) => (
-              <TableHead key={day} className="text-center min-w-[80px]">
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-gray-500">
-                    {new Date(
-                      currentYear,
-                      currentMonth - 1,
-                      day
-                    ).toLocaleDateString("en-US", { weekday: "short" })}
-                  </span>
-                  <span>{day}</span>
-                </div>
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rosterData.map((member) => (
-            <TableRow key={member.user_id}>
-              <TableCell className="font-medium">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-blue-600">
-                      {member.username.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-medium">{member.username}</div>
-                    <div className="text-sm text-gray-500">{member.email}</div>
-                  </div>
-                </div>
-              </TableCell>
-              {days.map((day) => {
-                const dateStr = `${currentYear}-${currentMonth
-                  .toString()
-                  .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-                const entry = getEntryForDate(member.entries, dateStr);
-                return (
-                  <TableCell key={day} className="text-center">
-                    {getStatusBadge(entry?.status || "None")}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-};
 
 export const OrganizationDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -133,7 +37,7 @@ export const OrganizationDashboard: React.FC = () => {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showUpcomingLeave, setShowUpcomingLeave] = useState(false);
   const [onCallProfile, setOnCallProfile] = useState<any>(null);
-  const [localCompOffBalance, setLocalCompOffBalance] = useState<number>(0);
+
   const [carryForwardBalance, setCarryForwardBalance] = useState<number>(0);
   // Add a state to track carry forward for the next month
   const [nextMonthCarryForward, setNextMonthCarryForward] = useState<number>(0);
@@ -159,44 +63,21 @@ export const OrganizationDashboard: React.FC = () => {
     }
   }, [user, selectedTeam, currentMonth, currentYear]);
 
-  // Update local comp-off balance when roster data or carry forward changes
-  useEffect(() => {
-    if (user && selectedTeam && selectedTeam.id !== "no-team") {
-      const totalBalance = calculateTotalBalance();
-      setLocalCompOffBalance(totalBalance);
-    }
-  }, [rosterData, carryForwardBalance, currentMonth, currentYear, user]);
-
-  // Recalculate balance when roster data changes (for immediate updates)
-  useEffect(() => {
-    if (user && selectedTeam && selectedTeam.id !== "no-team") {
-      // Small delay to ensure roster data is updated
-      const timer = setTimeout(() => {
-        const totalBalance = calculateTotalBalance();
-        setLocalCompOffBalance(totalBalance);
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [rosterData]);
-
   // Function to handle immediate balance updates when roster changes
   const handleRosterDataChange = async () => {
     await loadRosterData();
-    // The useEffect above will automatically recalculate the balance
   };
 
   // Function to handle immediate balance updates when roster entry changes
   const handleRosterEntryChange = () => {
     // Force recalculation of balance immediately
-    const totalBalance = calculateTotalBalance();
-    setLocalCompOffBalance(totalBalance);
+    calculateTotalBalance();
   };
 
   // Fetch comp-off balance for logged-in user (legacy function - keeping for compatibility)
   const loadUserCompOffBalance = async () => {
     if (!user) return;
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("roster_entries")
       .select("id")
       .eq("user_id", user.id)
@@ -835,25 +716,11 @@ export const OrganizationDashboard: React.FC = () => {
     return appliedLeavesCount;
   };
 
-  // Update comp-off balance card instantly on any roster change
+  // Update applied leaves count when roster data changes
   useEffect(() => {
-    setLocalCompOffBalance(getDisplayCompOffBalance());
     // Also refresh applied leaves count when roster data changes
     refreshAppliedLeavesCount();
   }, [rosterData, currentMonth, currentYear, nextMonthCarryForward]);
-
-  // Recalculate balance when roster data changes (for immediate updates)
-  useEffect(() => {
-    if (user && selectedTeam && selectedTeam.id !== "no-team") {
-      // Small delay to ensure roster data is updated
-      const timer = setTimeout(() => {
-        const totalBalance = calculateTotalBalance();
-        setLocalCompOffBalance(totalBalance);
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [rosterData]);
 
   const monthNames = [
     "January",
@@ -1384,7 +1251,6 @@ export const OrganizationDashboard: React.FC = () => {
           setShowCreateTeam={setShowCreateTeam}
           onTeamSelect={handleTeamSelection}
           loadRosterData={handleRosterDataChange}
-          onCompOffBalanceChange={setLocalCompOffBalance}
           onRosterEntryChange={handleRosterEntryChange}
           carryForwardBalance={carryForwardBalance}
           isNavigationAllowed={isNavigationAllowed}

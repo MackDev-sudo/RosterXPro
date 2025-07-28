@@ -77,7 +77,6 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/hooks/useAuth";
 
 interface RosterEntry {
   id: string;
@@ -201,10 +200,7 @@ const Analytics: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [compOffs, setCompOffs] = useState<CompOff[]>([]);
   const [appliedLeaves, setAppliedLeaves] = useState<RosterEntry[]>([]);
-  const [workflowAnalysis, setWorkflowAnalysis] = useState<WorkflowAnalysis[]>(
-    []
-  );
-  const [groqAnalysis, setGroqAnalysis] = useState<any>(null);
+
   const [selectedShifts, setSelectedShifts] = useState<string[]>([]);
 
   // Fetch real-time data from database
@@ -663,7 +659,6 @@ const Analytics: React.FC = () => {
       });
     });
 
-    setWorkflowAnalysis(analysis);
     return analysis;
   };
 
@@ -738,7 +733,6 @@ const Analytics: React.FC = () => {
 
       // Simulate Groq AI analysis (replace with actual API call)
       const groqResponse = await simulateGroqAnalysis(analysisData);
-      setGroqAnalysis(groqResponse);
       return groqResponse;
     } catch (error) {
       console.error("Error in Groq AI analysis:", error);
@@ -1817,7 +1811,7 @@ const Analytics: React.FC = () => {
                   title="Workload Distribution"
                   data={
                     analyticsData?.workflowAnalysis.individualAnalysis.map(
-                      (member, index) => ({
+                      (member, _index) => ({
                         label: member.user_name.substring(0, 8),
                         value: member.totalWorkingDays,
                       })
@@ -1995,7 +1989,7 @@ const Analytics: React.FC = () => {
                   title="Productivity Scores"
                   data={
                     analyticsData?.workflowAnalysis.individualAnalysis.map(
-                      (member, index) => ({
+                      (member, _index) => ({
                         label: member.user_name.substring(0, 8),
                         value: member.productivityScore,
                       })
