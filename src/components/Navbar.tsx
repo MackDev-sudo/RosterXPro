@@ -17,7 +17,6 @@ import {
   Moon,
   Monitor,
   ChevronDown,
-  Building2,
   Shield,
   HelpCircle,
   LayoutDashboard,

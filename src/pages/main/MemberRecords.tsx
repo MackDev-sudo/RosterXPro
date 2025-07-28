@@ -20,40 +20,6 @@ import { AddMemberRecords } from "@/components/main/AddMemberRecords";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
-interface Skill {
-  name: string;
-  experience: string;
-  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
-}
-
-interface Certification {
-  name: string;
-  issuer: string;
-  date: string;
-  fileUrl: string;
-  fileName: string;
-}
-
-interface Project {
-  name: string;
-  organization: string;
-  duration: string;
-  role: string;
-}
-
-interface Organization {
-  name: string;
-  position: string;
-  duration: string;
-}
-
-interface Achievement {
-  title: string;
-  description: string;
-  date: string;
-  category: string;
-}
-
 const MemberRecords: React.FC = () => {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [hasData, setHasData] = useState(false); // This will be controlled by backend data

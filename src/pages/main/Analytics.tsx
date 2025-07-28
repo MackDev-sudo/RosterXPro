@@ -65,14 +65,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   ChartLegend,
@@ -198,7 +191,6 @@ interface AnalyticsData {
 }
 
 const Analytics: React.FC = () => {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [timeRange, setTimeRange] = useState("30");
   const [isLoading, setIsLoading] = useState(false);
@@ -762,8 +754,7 @@ const Analytics: React.FC = () => {
     const sickLeaves = data.patterns.longSickLeaves;
     const emergencyLeaves = data.patterns.longEmergencyLeaves;
     const overworking = data.patterns.overworking;
-    const excessivePL = data.patterns.excessivePL;
-    const excessiveCF = data.patterns.excessiveCF;
+
     const healthConsultation = data.patterns.needsHealthConsultation;
     const teamAvailability = data.patterns.impactsTeamAvailability;
     const unfairShifts = data.patterns.unfairShiftDistribution;
@@ -1848,9 +1839,9 @@ const Analytics: React.FC = () => {
                     <div className="space-y-3">
                       {analyticsData?.insights
                         .slice(0, 3)
-                        .map((insight, index) => (
+                        .map((insight, _index) => (
                           <div
-                            key={index}
+                            key={_index}
                             className="flex items-start space-x-2"
                           >
                             <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0" />
@@ -1874,9 +1865,9 @@ const Analytics: React.FC = () => {
                     <div className="space-y-3">
                       {analyticsData?.recommendations
                         .slice(0, 3)
-                        .map((rec, index) => (
+                        .map((rec, _index) => (
                           <div
-                            key={index}
+                            key={_index}
                             className="flex items-start space-x-2"
                           >
                             <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />

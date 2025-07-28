@@ -5,8 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+
 import { Button } from "@/components/ui/button";
 import {
   HelpCircle,
@@ -17,8 +16,6 @@ import {
   Zap,
   FileText,
   Settings,
-  User,
-  Building2,
   Phone,
   Mail,
   ExternalLink,

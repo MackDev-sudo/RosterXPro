@@ -118,7 +118,7 @@ const RosterTable: React.FC<{
 export const OrganizationDashboard: React.FC = () => {
   const { user } = useAuth();
   const [orgData, setOrgData] = useState<UserOrganizationData | null>(null);
-  const [compOffBalance, setCompOffBalance] = useState<number>(0);
+
   const [selectedTeam, setSelectedTeam] = useState<any>(null);
   const [teamLead, setTeamLead] = useState<string | null>(null);
   const [manager, setManager] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export const OrganizationDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showUpcomingLeave, setShowUpcomingLeave] = useState(false);
@@ -203,38 +203,7 @@ export const OrganizationDashboard: React.FC = () => {
       .eq("shift_type", "OC");
     if (error) {
       console.error("Error fetching comp-off balance:", error);
-      setCompOffBalance(0);
       return;
-    }
-    setCompOffBalance(data ? data.length : 0);
-  };
-
-  // Load carry forward balance from database
-  const loadCarryForwardBalance = async () => {
-    if (!user || !selectedTeam || selectedTeam.id === "no-team") return;
-
-    console.log(
-      `Loading carry forward balance for user: ${user.id}, team: ${selectedTeam.id}, month: ${currentMonth}, year: ${currentYear}`
-    );
-
-    try {
-      const balance = await organizationService.getCurrentCompOffBalance(
-        user.id,
-        selectedTeam.id,
-        currentYear,
-        currentMonth
-      );
-      setCarryForwardBalance(balance);
-      console.log(`Loaded carry forward balance: ${balance}`);
-    } catch (error) {
-      console.error("Error loading carry forward balance:", error);
-      console.error("Error details:", error);
-
-      // Fallback: Calculate carry forward locally if database functions don't exist
-      console.log("Falling back to local calculation...");
-      const fallbackBalance = calculateLocalCarryForward();
-      setCarryForwardBalance(fallbackBalance);
-      console.log(`Fallback carry forward balance: ${fallbackBalance}`);
     }
   };
 

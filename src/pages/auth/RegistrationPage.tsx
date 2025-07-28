@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
+
 import { useAuth } from "@/hooks/useAuth";
 
 interface RegistrationModalProps {
@@ -145,11 +145,6 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSocialLogin = (provider: "google" | "github") => {
-    console.log(`Login with ${provider}`);
-    // TODO: Implement OAuth login
   };
 
   return (

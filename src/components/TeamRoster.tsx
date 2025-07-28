@@ -16,13 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Users,
-  RotateCcw,
-  UserPlus,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -152,8 +146,7 @@ const RosterTable: React.FC<{
   currentYear,
   selectedTeam,
   handleSelect,
-  pendingRoster,
-  onCompOffBalanceChange,
+
   onRosterEntryChange,
   carryForwardBalance = 0,
   monthNames = [],
@@ -703,9 +696,6 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
     [key: string]: { userId: string; date: string; value: string };
   }>({});
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
-    "idle"
-  );
 
   // Comp-off balance state for admin users
   const [userCompOffBalances, setUserCompOffBalances] = useState<
@@ -922,7 +912,7 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
 
   const handleSave = async () => {
     setSaving(true);
-    setSaveStatus("idle");
+
     try {
       const teamId = selectedTeam?.id;
       if (!teamId) return;
@@ -938,19 +928,17 @@ const TeamRoster: React.FC<TeamRosterProps> = ({
         if (!ok) allOk = false;
       }
       setPendingRoster({});
-      setSaveStatus(allOk ? "success" : "error");
+
       if (allOk && typeof loadRosterData === "function") {
         loadRosterData();
       }
     } catch (err) {
-      setSaveStatus("error");
     } finally {
       setSaving(false);
     }
   };
 
   const [showUpcomingLeave, setShowUpcomingLeave] = useState(false);
-  const [showCreateRules, setShowCreateRules] = useState(false);
 
   const handleSaveRules = (rules: any) => {
     console.log("Saving rules:", rules);

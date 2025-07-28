@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
+
 import { authService } from "@/lib/auth";
 
 interface LoginModalProps {
@@ -67,25 +67,6 @@ const LoginModal: React.FC<LoginModalProps> = ({
       console.error("Login error:", err);
       setError(
         err instanceof Error ? err.message : "Login failed. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async (provider: "google" | "github") => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await authService.signInWithOAuth(provider);
-      // OAuth redirect will handle the login flow
-    } catch (err) {
-      console.error(`${provider} login error:`, err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : `${provider} login failed. Please try again.`
       );
     } finally {
       setIsLoading(false);

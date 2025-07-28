@@ -4,11 +4,8 @@ import {
   Building2,
   Briefcase,
   Award,
-  FileText,
   Target,
   Plus,
-  X,
-  Upload,
   Trash2,
   Star,
 } from "lucide-react";

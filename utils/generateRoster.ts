@@ -119,86 +119,94 @@ function getDatesBetween(startDate: Date, endDate: Date): string[] {
   const dates: string[] = [];
   let currentDate = new Date(startDate);
   while (currentDate <= endDate) {
-    dates.push(currentDate.toISOString().split('T')[0]);
+    dates.push(currentDate.toISOString().split("T")[0]);
     currentDate.setDate(currentDate.getDate() + 1);
   }
   return dates;
 }
 
 /**
- * Checks if a given date falls within the week-off period
- */
-function isWeekOff(date: string, weekOff: { start: number; end: number }): boolean {
-  const dayOfWeek = new Date(date).getDay(); // 0-6, Sunday-Saturday
-  const { start, end } = weekOff;
-  // Handle cases where week-off spans across Sunday
-  if (start > end) {
-    return dayOfWeek >= start || dayOfWeek <= end;
-  }
-  return dayOfWeek >= start && dayOfWeek <= end;
-}
-
-/**
  * Normalizes the roster rules to ensure consistent property names and values
  */
-function normalizeRules(rules: RosterRules): RosterRules & { dedicatedOnCallMemberId: string } {
-  console.log('Normalizing rules input:', rules);
-  
+function normalizeRules(
+  rules: RosterRules
+): RosterRules & { dedicatedOnCallMemberId: string } {
+  console.log("Normalizing rules input:", rules);
+
   // Parse shift_timings if it's a string
   let shiftTimings: ShiftTiming[] = [];
-  
+
   if (Array.isArray(rules.shiftTimings)) {
     shiftTimings = rules.shiftTimings;
-    console.log('Using provided shiftTimings array:', shiftTimings);
-  } else if (typeof rules.shift_timings === 'string') {
+    console.log("Using provided shiftTimings array:", shiftTimings);
+  } else if (typeof rules.shift_timings === "string") {
     try {
       shiftTimings = JSON.parse(rules.shift_timings);
-      console.log('Parsed shift_timings from string:', shiftTimings);
+      console.log("Parsed shift_timings from string:", shiftTimings);
     } catch (e) {
-      console.error('Error parsing shift_timings string:', e);
+      console.error("Error parsing shift_timings string:", e);
     }
   } else if (Array.isArray(rules.shift_timings)) {
     shiftTimings = rules.shift_timings;
-    console.log('Using shift_timings array:', shiftTimings);
+    console.log("Using shift_timings array:", shiftTimings);
   }
-  
+
   if (!Array.isArray(shiftTimings) || shiftTimings.length === 0) {
-    console.error('No valid shift timings found');
-    throw new Error('No valid shift timings found in rules');
+    console.error("No valid shift timings found");
+    throw new Error("No valid shift timings found in rules");
   }
 
   // Create a normalized version of the rules with default values
   const now = new Date();
   const thisMonth = now.getMonth() + 1;
   const thisYear = now.getFullYear();
-  
+
   const normalized = {
     ...rules,
     dedicatedOnCallMemberId: rules.dedicatedOnCallMember,
     shiftTimings: shiftTimings,
     // Ensure we have valid dates
-    startDate: rules.startDate || `${thisYear}-${String(thisMonth).padStart(2, '0')}-01`,
-    endDate: rules.endDate || `${thisYear}-${String(thisMonth).padStart(2, '0')}-31`,
+    startDate:
+      rules.startDate || `${thisYear}-${String(thisMonth).padStart(2, "0")}-01`,
+    endDate:
+      rules.endDate || `${thisYear}-${String(thisMonth).padStart(2, "0")}-31`,
     weekOff: rules.weekOff || { start: 6, end: 0 }, // Default: Saturday-Sunday
     numberOfShifts: rules.number_of_shifts ?? rules.numberOfShifts ?? 3,
-    minMembersPerShift: rules.min_members_per_shift ?? rules.minMembersPerShift ?? 1,
-    maxMembersPerShift: rules.max_members_per_shift ?? rules.maxMembersPerShift ?? 5,
+    minMembersPerShift:
+      rules.min_members_per_shift ?? rules.minMembersPerShift ?? 1,
+    maxMembersPerShift:
+      rules.max_members_per_shift ?? rules.maxMembersPerShift ?? 5,
     onCallType: rules.on_call_type ?? rules.onCallType ?? "dedicated",
     rotationCycle: rules.rotation_cycle ?? rules.rotationCycle ?? "weekly",
-    customRotationDays: rules.custom_rotation_days ?? rules.customRotationDays ?? null,
-    consecutiveShiftLimit: rules.consecutive_shift_limit ?? rules.consecutiveShiftLimit ?? 1,
-    minRestHoursBetweenShifts: rules.min_rest_hours_between_shifts ?? rules.minRestHoursBetweenShifts ?? 8,
-    weekendCoverage: rules.weekend_coverage ?? rules.weekendCoverage ?? "required",
-    holidayCoverage: rules.holiday_coverage ?? rules.holidayCoverage ?? "required",
-    enforceEqualDistribution: rules.enforce_equal_distribution ?? rules.enforceEqualDistribution ?? true,
-    prioritizeExperience: rules.prioritize_experience ?? rules.prioritizeExperience ?? false,
-    allowSelfSelection: rules.allow_self_selection ?? rules.allowSelfSelection ?? true,
-    advanceNotificationDays: rules.advance_notification_days ?? rules.advanceNotificationDays ?? 7,
-    allowShiftSwapping: rules.allow_shift_swapping ?? rules.allowShiftSwapping ?? true,
-    requireApprovalForSwaps: rules.require_approval_for_swaps ?? rules.requireApprovalForSwaps ?? true
+    customRotationDays:
+      rules.custom_rotation_days ?? rules.customRotationDays ?? null,
+    consecutiveShiftLimit:
+      rules.consecutive_shift_limit ?? rules.consecutiveShiftLimit ?? 1,
+    minRestHoursBetweenShifts:
+      rules.min_rest_hours_between_shifts ??
+      rules.minRestHoursBetweenShifts ??
+      8,
+    weekendCoverage:
+      rules.weekend_coverage ?? rules.weekendCoverage ?? "required",
+    holidayCoverage:
+      rules.holiday_coverage ?? rules.holidayCoverage ?? "required",
+    enforceEqualDistribution:
+      rules.enforce_equal_distribution ??
+      rules.enforceEqualDistribution ??
+      true,
+    prioritizeExperience:
+      rules.prioritize_experience ?? rules.prioritizeExperience ?? false,
+    allowSelfSelection:
+      rules.allow_self_selection ?? rules.allowSelfSelection ?? true,
+    advanceNotificationDays:
+      rules.advance_notification_days ?? rules.advanceNotificationDays ?? 7,
+    allowShiftSwapping:
+      rules.allow_shift_swapping ?? rules.allowShiftSwapping ?? true,
+    requireApprovalForSwaps:
+      rules.require_approval_for_swaps ?? rules.requireApprovalForSwaps ?? true,
   };
 
-  console.log('Normalized rules with shift timings:', normalized);
+  console.log("Normalized rules with shift timings:", normalized);
   return normalized;
 }
 
@@ -222,24 +230,32 @@ export interface GenerateRosterInput {
 }
 
 export function generateRoster(input: GenerateRosterInput): ShiftAssignment[] {
-  console.log('Generate Roster called with:', input);
-  
+  console.log("Generate Roster called with:", input);
+
   // Normalize rules for consistent property access
   const normalizedRules = normalizeRules(input.rules);
-  console.log('Normalized rules:', normalizedRules);
-  
+  console.log("Normalized rules:", normalizedRules);
+
   const assignments: ShiftAssignment[] = [];
 
   // Separate dedicated on-call member from regular members
-  const dedicatedOCMember = input.members.find((m: TeamMember) => m.name === normalizedRules.dedicatedOnCallMember);
+  const dedicatedOCMember = input.members.find(
+    (m: TeamMember) => m.name === normalizedRules.dedicatedOnCallMember
+  );
   if (!dedicatedOCMember) {
-    throw new Error(`Dedicated on-call member "${normalizedRules.dedicatedOnCallMember}" not found`);
+    throw new Error(
+      `Dedicated on-call member "${normalizedRules.dedicatedOnCallMember}" not found`
+    );
   }
 
-  const regularMembers = input.members.filter((m: TeamMember) => m.name !== normalizedRules.dedicatedOnCallMember);
+  const regularMembers = input.members.filter(
+    (m: TeamMember) => m.name !== normalizedRules.dedicatedOnCallMember
+  );
   const minRequired = normalizedRules.minMembersPerShift || 1;
   if (regularMembers.length < minRequired) {
-    throw new Error(`Not enough regular members for shift assignments. Need at least ${minRequired}`);
+    throw new Error(
+      `Not enough regular members for shift assignments. Need at least ${minRequired}`
+    );
   }
 
   // Generate dates to create roster for
@@ -248,10 +264,10 @@ export function generateRoster(input: GenerateRosterInput): ShiftAssignment[] {
   const dates = getDatesBetween(startDate, endDate);
 
   // Define available shift types for rotation
-  const shiftTypes = ['S1', 'S2', 'HS'];
-  
+  const shiftTypes = ["S1", "S2", "HS"];
+
   // Generate roster for each date
-  dates.forEach(date => {
+  dates.forEach((date) => {
     const isWeekendDay = isWeekend(date);
     const weekNum = getWeekNumber(new Date(date));
 
@@ -261,23 +277,23 @@ export function generateRoster(input: GenerateRosterInput): ShiftAssignment[] {
         // On weekends, regular members get week off
         assignments.push({
           date,
-          shiftId: 'WO',
+          shiftId: "WO",
           memberId: member.id,
-          shift_type: 'WO',
-          status: 'Week Off'
+          shift_type: "WO",
+          status: "Week Off",
         });
       } else {
         // On weekdays, rotate shifts based on week number
         // Each member gets a different shift type that rotates weekly
         const shiftIndex = (weekNum + memberIndex) % shiftTypes.length;
         const shiftType = shiftTypes[shiftIndex];
-        
+
         assignments.push({
           date,
           shiftId: shiftType,
           memberId: member.id,
           shift_type: shiftType,
-          status: 'Regular Shift'
+          status: "Regular Shift",
         });
       }
     });
@@ -287,32 +303,32 @@ export function generateRoster(input: GenerateRosterInput): ShiftAssignment[] {
       // On weekends, on-call member does on-call duty
       assignments.push({
         date,
-        shiftId: 'OC',
+        shiftId: "OC",
         memberId: dedicatedOCMember.id,
-        shift_type: 'OC',
-        status: 'On Call'
+        shift_type: "OC",
+        status: "On Call",
       });
     } else {
       // On weekdays, on-call member gets a regular shift based on rotation
       const shiftIndex = (weekNum + regularMembers.length) % shiftTypes.length;
       const shiftType = shiftTypes[shiftIndex];
-      
+
       assignments.push({
         date,
         shiftId: shiftType,
         memberId: dedicatedOCMember.id,
         shift_type: shiftType,
-        status: 'Regular Shift'
+        status: "Regular Shift",
       });
     }
   });
 
-  console.log('Generated assignments:', assignments);
-  
+  console.log("Generated assignments:", assignments);
+
   if (assignments.length === 0) {
-    console.error('No assignments were generated. Check the following:');
-    console.log('- Date range:', { startDate, endDate });
-    console.log('- Team members:', { dedicatedOCMember, regularMembers });
+    console.error("No assignments were generated. Check the following:");
+    console.log("- Date range:", { startDate, endDate });
+    console.log("- Team members:", { dedicatedOCMember, regularMembers });
   }
 
   return assignments;
